@@ -65,81 +65,40 @@ const ErbfolgeRechner = () => {
     setErben(erben.filter(erbe => erbe.id !== id));
   };
 
-  const berechnen = () => {
-    // Simplified inheritance calculation for demonstration
-    const ergebnisseTemp: Record<string, number> = {};
-    
-    // Count relationship types
-    const beziehungen = erben.reduce((acc, erbe) => {
-      acc[erbe.beziehung] = (acc[erbe.beziehung] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    
-    // Simple distribution logic (placeholder)
-    if (beziehungen['ehepartner'] && beziehungen['kind']) {
-      // Spouse and children
-      const ehePartnerQuote = 0.5;
-      const kinderAnzahl = beziehungen['kind'] || 0;
-      const kinderQuote = (1 - ehePartnerQuote) / kinderAnzahl;
-      
-      erben.forEach(erbe => {
-        if (erbe.beziehung === 'ehepartner') {
-          ergebnisseTemp[erbe.id] = ehePartnerQuote * 100;
-        } else if (erbe.beziehung === 'kind') {
-          ergebnisseTemp[erbe.id] = kinderQuote * 100;
-        } else {
-          ergebnisseTemp[erbe.id] = 0;
+  const berechnen = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:8000/tools/erbfolge/calculate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          erblasser: erblasserName,
+          vermoegenswert: 0, // Optional: Vermögenswert, kann später ergänzt werden
+          erben
+        })
+      });
+      if (!res.ok) throw new Error('Berechnung fehlgeschlagen');
+      const data = await res.json();
+      setErgebnisse(data.ergebnisse || {});
+      // Save to history
+      addToolToHistory({
+        toolId: 'erbfolge-rechner',
+        toolName: 'Erbfolge-Rechner',
+        data: {
+          erblasserName,
+          erben
         }
       });
-    } else if (beziehungen['ehepartner'] && !beziehungen['kind']) {
-      // Spouse but no children
-      const ehePartnerQuote = 0.75;
-      const otherRelatives = Object.keys(beziehungen).filter(k => k !== 'ehepartner').length;
-      const otherQuote = otherRelatives > 0 ? (1 - ehePartnerQuote) / otherRelatives : 0;
-      
-      erben.forEach(erbe => {
-        if (erbe.beziehung === 'ehepartner') {
-          ergebnisseTemp[erbe.id] = ehePartnerQuote * 100;
-        } else {
-          ergebnisseTemp[erbe.id] = otherQuote * 100 / (erben.filter(e => e.beziehung === erbe.beziehung).length);
-        }
+      toast({
+        title: 'Berechnung abgeschlossen',
+        description: 'Die gesetzlichen Erbanteile wurden berechnet.'
       });
-    } else if (beziehungen['kind'] && !beziehungen['ehepartner']) {
-      // Children but no spouse
-      const kinderAnzahl = beziehungen['kind'];
-      const kinderQuote = 1 / kinderAnzahl;
-      
-      erben.forEach(erbe => {
-        if (erbe.beziehung === 'kind') {
-          ergebnisseTemp[erbe.id] = kinderQuote * 100;
-        } else {
-          ergebnisseTemp[erbe.id] = 0;
-        }
-      });
-    } else {
-      // Equal distribution as a fallback
-      const quote = 1 / erben.length;
-      erben.forEach(erbe => {
-        ergebnisseTemp[erbe.id] = quote * 100;
-      });
+    } catch (e) {
+      toast({ title: 'Berechnung fehlgeschlagen', description: String(e), variant: 'destructive' });
     }
-    
-    setErgebnisse(ergebnisseTemp);
-    
-    // Save to history
-    addToolToHistory({
-      toolId: 'erbfolge-rechner',
-      toolName: 'Erbfolge-Rechner',
-      data: {
-        erblasserName,
-        erben
-      }
-    });
-    
-    toast({
-      title: "Berechnung abgeschlossen",
-      description: "Die gesetzlichen Erbanteile wurden berechnet."
-    });
   };
 
   const speichern = () => {

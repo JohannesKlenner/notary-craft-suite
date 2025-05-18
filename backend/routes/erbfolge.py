@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List
 from backend.database.db import get_db
@@ -10,24 +10,25 @@ router = APIRouter()
 
 @router.post("/calculate")
 async def calculate_erbfolge(
-    erblasser: str,
-    vermoegenswert: float,
+    erblasser: str = Body(...),
+    vermoegenswert: float = Body(...),
+    erben: list = Body(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Dummy-Logik aus tools.erbfolge nutzen
-    ergebnis = berechne_erbfolge(erblasser, vermoegenswert)
-    # Speicherung wie gehabt
+    # Neue Logik: strukturierte Erbenliste
+    ergebnis = berechne_erbfolge(erblasser, vermoegenswert, erben)
+    # Speicherung
     calculation = Erbfolge(
         user_id=current_user.id,
         erblasser=erblasser,
         vermoegenswert=vermoegenswert,
-        ergebnis=ergebnis["ergebnis"]
+        ergebnis=str(ergebnis["ergebnisse"])
     )
     db.add(calculation)
     db.commit()
     db.refresh(calculation)
-    return calculation
+    return ergebnis
 
 @router.get("/history", response_model=List[dict])
 async def get_erbfolge_history(

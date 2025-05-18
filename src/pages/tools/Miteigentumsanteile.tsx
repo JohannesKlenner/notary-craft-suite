@@ -202,20 +202,39 @@ const Miteigentumsanteile = () => {
     setEigentuemer(updatedEigentuemer);
   };
 
-  const speichern = () => {
-    addToolToHistory({
-      toolId: 'miteigentumsanteile',
-      toolName: 'Miteigentumsanteile',
-      data: {
-        eigentuemer,
-        objektName
-      }
-    });
-    
-    toast({
-      title: "Gespeichert",
-      description: "Ihre Eingaben wurden gespeichert."
-    });
+  const speichern = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      // Für die API: Sende Objektname und die Summe der Anteile (hier: Summe der Prozentwerte)
+      const anteilSumme = eigentuemer.reduce((acc, e) => acc + e.quoteProzent, 0);
+      const res = await fetch('http://localhost:8000/tools/miteigentum/calculate', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          objekt: objektName,
+          anteil: anteilSumme
+        })
+      });
+      if (!res.ok) throw new Error('Berechnung fehlgeschlagen');
+      const data = await res.json();
+      toast({
+        title: 'Gespeichert',
+        description: data.ergebnis || 'Ihre Eingaben wurden gespeichert.'
+      });
+      addToolToHistory({
+        toolId: 'miteigentumsanteile',
+        toolName: 'Miteigentumsanteile',
+        data: {
+          eigentuemer,
+          objektName
+        }
+      });
+    } catch (e) {
+      toast({ title: 'Speichern fehlgeschlagen', description: String(e), variant: 'destructive' });
+    }
   };
 
   // Exportfunktion für PDF und CSV

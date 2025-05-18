@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.db import engine, Base
-from routes import erbfolge, miteigentum, history
+from routes import erbfolge, miteigentum, history, erbpachtzins
 from export import exporter
 from feedback import email
 from auth import users
@@ -26,6 +26,7 @@ app.include_router(users.router)
 app.include_router(erbfolge.router, prefix="/tools/erbfolge", tags=["tools"])
 app.include_router(miteigentum.router, prefix="/tools/miteigentum", tags=["tools"])
 app.include_router(history.router, prefix="/history", tags=["history"])
+app.include_router(erbpachtzins.router, prefix="/tools/erbpachtzins", tags=["tools"])
 
 # Export
 app.include_router(exporter.router, prefix="/export", tags=["export"])

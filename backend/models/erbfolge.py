@@ -1,4 +1,3 @@
-
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from ..database.db import Base
@@ -13,3 +12,4 @@ class Erbfolge(Base):
     ergebnis = Column(String)
     
     user = relationship("User", back_populates="erbfolge_berechnungen")
+    erbpachtzins_berechnungen = relationship("Erbpachtzins", back_populates="user")
