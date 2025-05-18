@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .database.db import engine, Base
-from .routes import erbfolge, miteigentum
+from database.db import engine, Base
+from routes import erbfolge, miteigentum
 
 app = FastAPI(title="Notary Tools API")
 
