@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "python-3.11", "web"]
 run = "npm run dev"
 
 [nix]
@@ -9,7 +9,7 @@ packages = ["cargo", "freetype", "glibcLocales", "libiconv", "rustc"]
 run = ["sh", "-c", "npm run dev"]
 
 [workflows]
-runButton = "Run Backend"
+runButton = "Run Backend and Frontend"
 
 [[workflows.workflow]]
 name = "Run Backend"
@@ -19,6 +19,19 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "python3 backend/main.py"
+
+[[workflows.workflow]]
+name = "Run Backend and Frontend"
+author = 41538878
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python3 backend/main.py"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
 
 [[ports]]
 localPort = 8080
