@@ -34,7 +34,7 @@ def export_file(format: str, data: dict = Body(...)):
         pdf.cell(0, 10, "Name        Beziehung        Erbquote (%)", ln=True)
         for erbe in erben:
             pdf.cell(0, 10, f"{erbe.get('name','')}        {erbe.get('beziehung','')}        {ergebnisse.get(erbe['id'], 0):.2f}", ln=True)
-        content = pdf.output(dest='S').encode('latin1')
+        content = pdf.output(dest='S')
         return Response(content, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=erbfolge.pdf"})
 
     elif format == "gedcom":
@@ -72,7 +72,7 @@ def export_file(format: str, data: dict = Body(...)):
         pdf.cell(0, 10, f"Alter Index: {alter_index}", ln=True)
         pdf.cell(0, 10, f"Neuer Index: {neuer_index}", ln=True)
         pdf.cell(0, 10, f"Neuer Zins: {neuer_zins} €", ln=True)
-        content = pdf.output(dest='S').encode('latin1')
+        content = pdf.output(dest='S')
         return Response(content, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=erbpachtzins.pdf"})
 
     # Export für GNotKG
@@ -99,7 +99,7 @@ def export_file(format: str, data: dict = Body(...)):
         pdf.cell(0, 10, f"Geschäftswert: {geschaeftswert} €", ln=True)
         pdf.cell(0, 10, f"Vorgangsart: {vorgangsart}", ln=True)
         pdf.cell(0, 10, f"Gebühr: {gebuehr} €", ln=True)
-        content = pdf.output(dest='S').encode('latin1')
+        content = pdf.output(dest='S')
         return Response(content, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=gnotkg.pdf"})
 
     else:

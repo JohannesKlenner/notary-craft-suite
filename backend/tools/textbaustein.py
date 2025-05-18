@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import uuid
 
 def generiere_textbaustein(textbausteine: List[Dict], platzhalter: Dict) -> str:
@@ -19,7 +19,7 @@ BEISPIEL_BAUSTEINE = [
     {"id": str(uuid.uuid4()), "kategorie": "Erbschein", "titel": "Schlusssatz", "text": "Dies wird amtlich bestätigt am {{{datum}}}."}
 ]
 
-def lade_textbausteine(kategorie: str = None) -> List[Dict]:
+def lade_textbausteine(kategorie: Optional[str] = None) -> List[Dict]:
     if kategorie:
         return [b for b in BEISPIEL_BAUSTEINE if b["kategorie"] == kategorie]
     return BEISPIEL_BAUSTEINE

@@ -25,7 +25,7 @@ def load_fragebogen(fragebogen_id: str, db: Session = Depends(get_db)):
     fragebogen = db.query(Fragebogen).filter(Fragebogen.id == fragebogen_id).first()
     if not fragebogen:
         raise HTTPException(status_code=404, detail="Fragebogen nicht gefunden")
-    return {"id": fragebogen.id, "name": fragebogen.name, "struktur": json.loads(fragebogen.struktur)}
+    return {"id": fragebogen.id, "name": fragebogen.name, "struktur": json.loads(str(fragebogen.struktur))}
 
 @router.get("/list")
 def list_frageboegen(db: Session = Depends(get_db)):
