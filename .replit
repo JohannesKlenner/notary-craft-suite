@@ -7,3 +7,19 @@ packages = ["cargo", "freetype", "glibcLocales", "libiconv", "rustc"]
 
 [deployment]
 run = ["sh", "-c", "npm run dev"]
+
+[workflows]
+runButton = "Run Backend"
+
+[[workflows.workflow]]
+name = "Run Backend"
+author = 41538878
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python backend/main.py"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
