@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +7,6 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload } from 'lucide-react';
-
-// Email address that can be changed in one central place
-const FEEDBACK_EMAIL = 'feedback@notarytools.local';
 
 const Feedback = () => {
   const [subject, setSubject] = useState('');
@@ -26,19 +22,35 @@ const Feedback = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-
-    // Simulate sending feedback
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('subject', subject);
+      formData.append('message', message);
+      if (file) formData.append('file', file);
+      const res = await fetch('http://localhost:8000/feedback/send', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData
+      });
+      if (!res.ok) throw new Error('Feedback konnte nicht gesendet werden');
       toast({
         title: 'Feedback gesendet',
-        description: `Ihr Feedback wurde an ${FEEDBACK_EMAIL} gesendet. Vielen Dank!`,
+        description: `Ihr Feedback wurde übermittelt. Vielen Dank!`,
       });
       setIsSubmitting(false);
       navigate('/dashboard');
-    }, 1000);
+    } catch (e) {
+      toast({
+        title: 'Fehler',
+        description: String(e),
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+    }
   };
 
   return (

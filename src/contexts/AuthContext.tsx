@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from '@/components/ui/use-toast';
 
@@ -14,117 +13,81 @@ export interface User {
   lastName: string;
 }
 
-// Initial users for demonstration
-const initialUsers: User[] = [
-  {
-    id: '1',
-    username: 'admin',
-    password: 'admin123', // Would be hashed in production
-    role: 'admin',
-    firstName: 'Admin',
-    lastName: 'User'
-  },
-  {
-    id: '2',
-    username: 'notar',
-    password: 'notar123', // Would be hashed in production
-    role: 'user',
-    firstName: 'Max',
-    lastName: 'Mustermann'
-  }
-];
-
-interface AuthContextType {
+export interface AuthContextType {
   currentUser: User | null;
-  users: User[];
   isLoggedIn: boolean;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  addUser: (user: Omit<User, 'id'>) => void;
-  switchUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize state with values from localStorage if they exist
-  const [users, setUsers] = useState<User[]>(() => {
-    const storedUsers = localStorage.getItem('users');
-    return storedUsers ? JSON.parse(storedUsers) : initialUsers;
-  });
-  
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('currentUser');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('isLoggedIn') === 'true';
-  });
-
-  // Update localStorage when state changes
+  // Prüfe beim Laden, ob ein Token existiert und hole ggf. Userdaten
   useEffect(() => {
-    localStorage.setItem('users', JSON.stringify(users));
-  }, [users]);
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('http://localhost:8000/users/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(user => {
+          if (user) {
+            setCurrentUser(user);
+            setIsLoggedIn(true);
+          } else {
+            setCurrentUser(null);
+            setIsLoggedIn(false);
+            localStorage.removeItem('token');
+          }
+        });
+    }
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('currentUser', JSON.stringify(currentUser));
-    localStorage.setItem('isLoggedIn', isLoggedIn ? 'true' : 'false');
-  }, [currentUser, isLoggedIn]);
-
-  const login = (username: string, password: string): boolean => {
-    const user = users.find(u => u.username === username && u.password === password);
-    
-    if (user) {
+  const login = async (username: string, password: string): Promise<boolean> => {
+    try {
+      const res = await fetch('http://localhost:8000/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ username, password })
+      });
+      if (!res.ok) {
+        toast({ title: 'Anmeldung fehlgeschlagen', description: 'Benutzername oder Passwort ist falsch', variant: 'destructive' });
+        return false;
+      }
+      const data = await res.json();
+      localStorage.setItem('token', data.access_token);
+      // Hole Userdaten
+      const userRes = await fetch('http://localhost:8000/users/me', {
+        headers: { 'Authorization': `Bearer ${data.access_token}` }
+      });
+      if (!userRes.ok) {
+        toast({ title: 'Anmeldung fehlgeschlagen', description: 'Benutzer nicht gefunden', variant: 'destructive' });
+        return false;
+      }
+      const user = await userRes.json();
       setCurrentUser(user);
       setIsLoggedIn(true);
-      toast({
-        title: "Erfolgreich angemeldet",
-        description: `Willkommen zurück, ${user.firstName} ${user.lastName}!`,
-      });
+      toast({ title: 'Erfolgreich angemeldet', description: `Willkommen zurück, ${user.firstName || user.username}!` });
       return true;
+    } catch (e) {
+      toast({ title: 'Fehler', description: 'Server nicht erreichbar', variant: 'destructive' });
+      return false;
     }
-    
-    toast({
-      title: "Anmeldung fehlgeschlagen",
-      description: "Benutzername oder Passwort ist falsch",
-      variant: "destructive"
-    });
-    return false;
   };
 
   const logout = () => {
     setCurrentUser(null);
     setIsLoggedIn(false);
-    toast({
-      title: "Abgemeldet",
-      description: "Sie wurden erfolgreich abgemeldet",
-    });
-  };
-
-  const addUser = (user: Omit<User, 'id'>) => {
-    const newUser = {
-      ...user,
-      id: Date.now().toString(), // Simple ID generation
-    };
-    setUsers([...users, newUser as User]);
-  };
-
-  const switchUser = () => {
-    setCurrentUser(null);
-    setIsLoggedIn(false);
+    localStorage.removeItem('token');
+    toast({ title: 'Abgemeldet', description: 'Sie wurden erfolgreich abgemeldet' });
   };
 
   return (
-    <AuthContext.Provider value={{
-      currentUser,
-      users,
-      isLoggedIn,
-      login,
-      logout,
-      addUser,
-      switchUser
-    }}>
+    <AuthContext.Provider value={{ currentUser, isLoggedIn, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

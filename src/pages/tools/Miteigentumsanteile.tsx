@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +7,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
 import { useToolHistory } from '@/contexts/ToolHistoryContext';
-import { ArrowLeft, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, Save, Trash2, Download } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 
 interface Eigentuemer {
@@ -219,6 +218,34 @@ const Miteigentumsanteile = () => {
     });
   };
 
+  // Exportfunktion für PDF und CSV
+  const exportieren = async (format: 'pdf' | 'csv') => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/export/${format}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ eigentuemer })
+      });
+      if (!res.ok) throw new Error('Export fehlgeschlagen');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Miteigentumsanteile.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Export erfolgreich', description: `Datei als ${format.toUpperCase()} exportiert.` });
+    } catch (e) {
+      toast({ title: 'Export fehlgeschlagen', description: String(e), variant: 'destructive' });
+    }
+  };
+
   return (
     <AuthGuard>
       <div className="container max-w-4xl mx-auto py-6 px-4 animate-fade-in">
@@ -359,10 +386,18 @@ const Miteigentumsanteile = () => {
               ))}
             </div>
           </CardContent>
-          <CardFooter className="justify-end">
+          <CardFooter className="justify-end gap-2">
             <Button onClick={speichern}>
               <Save className="mr-2 h-4 w-4" />
               Speichern
+            </Button>
+            <Button variant="secondary" onClick={() => exportieren('pdf')}>
+              <Download className="mr-2 h-4 w-4" />
+              PDF Export
+            </Button>
+            <Button variant="secondary" onClick={() => exportieren('csv')}>
+              <Download className="mr-2 h-4 w-4" />
+              CSV Export
             </Button>
           </CardFooter>
         </Card>
