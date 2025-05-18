@@ -75,5 +75,32 @@ def export_file(format: str, data: dict = Body(...)):
         content = pdf.output(dest='S').encode('latin1')
         return Response(content, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=erbpachtzins.pdf"})
 
+    # Export für GNotKG
+    elif format == "csv-gnotkg":
+        geschaeftswert = data.get("geschaeftswert")
+        vorgangsart = data.get("vorgangsart")
+        gebuehr = data.get("gebuehr")
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter=';')
+        writer.writerow(["Geschäftswert (€)", geschaeftswert])
+        writer.writerow(["Vorgangsart", vorgangsart])
+        writer.writerow(["Gebühr (€)", gebuehr])
+        content = output.getvalue().encode("utf-8")
+        return Response(content, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=gnotkg.csv"})
+
+    elif format == "pdf-gnotkg":
+        geschaeftswert = data.get("geschaeftswert")
+        vorgangsart = data.get("vorgangsart")
+        gebuehr = data.get("gebuehr")
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, "GNotKG-Berechnung", ln=True)
+        pdf.cell(0, 10, f"Geschäftswert: {geschaeftswert} €", ln=True)
+        pdf.cell(0, 10, f"Vorgangsart: {vorgangsart}", ln=True)
+        pdf.cell(0, 10, f"Gebühr: {gebuehr} €", ln=True)
+        content = pdf.output(dest='S').encode('latin1')
+        return Response(content, media_type="application/pdf", headers={"Content-Disposition": "attachment; filename=gnotkg.pdf"})
+
     else:
         raise HTTPException(status_code=400, detail="Unbekanntes Exportformat")

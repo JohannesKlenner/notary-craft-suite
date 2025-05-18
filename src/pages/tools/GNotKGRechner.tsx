@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AuthGuard } from '@/components/auth/AuthGuard';
 import { useToast } from '@/components/ui/use-toast';
+import { Download } from 'lucide-react';
 
 const GNotKGRechner = () => {
   const { toast } = useToast();
@@ -35,6 +36,37 @@ const GNotKGRechner = () => {
     }
   };
 
+  const exportieren = async (format: 'pdf' | 'csv') => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`http://localhost:8000/export/${format}-gnotkg`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          geschaeftswert: parseFloat(geschaeftswert),
+          vorgangsart,
+          gebuehr
+        })
+      });
+      if (!res.ok) throw new Error('Export fehlgeschlagen');
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `GNotKGRechner.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: 'Export erfolgreich', description: `Datei als ${format.toUpperCase()} exportiert.` });
+    } catch (e) {
+      toast({ title: 'Export fehlgeschlagen', description: String(e), variant: 'destructive' });
+    }
+  };
+
   return (
     <AuthGuard>
       <div className="container max-w-2xl mx-auto py-6 px-4 animate-fade-in">
@@ -59,8 +91,14 @@ const GNotKGRechner = () => {
               </div>
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between gap-2">
             <Button onClick={berechnen}>Berechnen</Button>
+            <Button variant="secondary" onClick={() => exportieren('pdf')}>
+              <Download className="mr-2 h-4 w-4" /> PDF Export
+            </Button>
+            <Button variant="secondary" onClick={() => exportieren('csv')}>
+              <Download className="mr-2 h-4 w-4" /> CSV Export
+            </Button>
           </CardFooter>
         </Card>
         {gebuehr !== null && (
