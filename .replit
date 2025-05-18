@@ -9,7 +9,7 @@ packages = ["cargo", "freetype", "glibcLocales", "libiconv", "rustc"]
 run = ["sh", "-c", "npm run dev"]
 
 [workflows]
-runButton = "Run Backend and Frontend"
+runButton = "Run Backend"
 
 [[workflows.workflow]]
 name = "Run Backend"
@@ -18,7 +18,7 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "python3 backend/main.py"
+args = "cd backend && python3 main.py"
 
 [[workflows.workflow]]
 name = "Run Backend and Frontend"
