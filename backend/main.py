@@ -12,7 +12,12 @@ from .config import settings
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+from .routes import erbfolge, miteigentum
+
 app = FastAPI(title="Notary Tools API")
+
+app.include_router(erbfolge.router, prefix="/api/erbfolge", tags=["Erbfolge"])
+app.include_router(miteigentum.router, prefix="/api/miteigentum", tags=["Miteigentum"])
 
 app.add_middleware(
     CORSMiddleware,

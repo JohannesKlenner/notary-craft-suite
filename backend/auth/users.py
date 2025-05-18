@@ -21,6 +21,9 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     is_admin = Column(Boolean, default=False)
+    
+    erbfolge_berechnungen = relationship("Erbfolge", back_populates="user")
+    miteigentum_berechnungen = relationship("Miteigentum", back_populates="user")
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
