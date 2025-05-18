@@ -1,0 +1,137 @@
+🎯 Projektziel
+Erstelle ein lokal ausführbares Backend („Server“) für eine Desktop-App namens „Notary Tools“. Die App stellt mehrere juristische Tools bereit. Das Backend versorgt das Frontend (Loveable) via FastAPI (lokal) mit Daten und Businesslogik. Die Daten werden persistent in einer lokalen SQLite-Datenbank gespeichert.
+
+✅ Anforderungen im Detail
+🔐 1. Benutzerverwaltung
+Benutzeranmeldung (Benutzername + Passwort mit bcrypt-Hash lokal)
+
+Benutzerrollen („Admin“ und „Standardnutzer“)
+
+Nur Admin darf Benutzer hinzufügen, ändern, löschen
+
+Passwortänderung durch Admin möglich
+
+Session-Management via Tokens (JWT empfohlen)
+
+🧩 2. Modulstruktur Backend
+Jedes Tool erhält eigenes Python-Modul in Ordnerstruktur:
+
+arduino
+Kopieren
+Bearbeiten
+backend/
+├── main.py (FastAPI Einstiegspunkt)
+├── database/
+│   └── db.py (SQLite-Verbindung, SQLAlchemy ORM empfohlen)
+├── auth/
+│   └── users.py (Benutzerverwaltung)
+├── tools/
+│   ├── erbfolge.py
+│   ├── miteigentum.py
+│   └── ... (weitere Tools später hier ergänzen)
+├── export/
+│   └── exporter.py (PDF, CSV, RTF, GedCOM, später DOCX, MD)
+├── feedback/
+│   └── email.py (Feedback-Mailversand)
+└── config.py (SMTP-Einstellungen etc.)
+📁 3. Speicherung
+SQLite-Datenbank für persistente Speicherung aller Daten lokal im Netzwerk (ermöglicht Mehrbenutzer-Betrieb via Netzwerkfreigabe)
+
+SQLAlchemy als ORM verwenden
+
+Historienfunktion: Automatisches Speichern zuletzt genutzter Vorgänge je Tool in DB (Timestamp, User, Toolname, JSON-Daten)
+
+📤 4. Export-Funktion
+Zentrales Export-Modul (exporter.py) mit Funktionen für:
+
+PDF, CSV, RTF
+
+GEDCOM (spezifische Tools wie „Erbfolge“)
+
+DOCX, Markdown später vorbereiten (optional)
+
+Einheitliche Schnittstelle, Frontend ruft API an, erhält Datei als Download zurück
+
+📧 5. Feedback-Funktion
+Versand von Feedback via SMTP (externer Provider), Anhänge (Screenshots) erlaubt
+
+Admin konfiguriert SMTP-Einstellungen (Adresse, Port, User, Passwort) in config.py
+
+🔄 6. Schnittstelle (FastAPI)
+REST API mit sauberer Swagger-/OpenAPI-Dokumentation
+
+JSON-basierte Kommunikation:
+
+Authentifizierung via JWT (Bearer-Token)
+
+Tools haben je eigene Endpunkte
+
+Exportfunktionen separate Endpunkte (/export/pdf, /export/csv usw.)
+
+Beispiel-Endpunkte:
+
+bash
+Kopieren
+Bearbeiten
+POST /login -> JWT Token
+GET /tools/erbfolge/{case_id} -> JSON-Daten
+POST /tools/erbfolge -> Neuer Vorgang erstellen
+POST /export/pdf -> PDF erzeugen & liefern
+POST /feedback/send -> Feedback-Mail senden
+🛠️ Technische Vorgaben
+Python 3.11+
+
+FastAPI als lokaler Webserver für API
+
+SQLAlchemy als ORM für SQLite
+
+bcrypt für Passwort-Hashes
+
+JWT (PyJWT) für Authentifizierung
+
+pytest für Unit-Tests
+
+🗃️ SQLite-Datenbankschema (initiale Struktur)
+sql
+Kopieren
+Bearbeiten
+users (
+  id INTEGER PRIMARY KEY,
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL,
+  created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+
+tool_history (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER,
+  tool_name TEXT,
+  json_data TEXT,
+  last_used TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(user_id) REFERENCES users(id)
+)
+
+smtp_config (
+  id INTEGER PRIMARY KEY,
+  smtp_server TEXT,
+  smtp_port INTEGER,
+  smtp_user TEXT,
+  smtp_password TEXT
+)
+📌 Besondere Hinweise zur späteren Erweiterbarkeit
+Bereite eine mögliche spätere Anbindung an eine externe SQLBase-Datenbank (Advoware) vor. (Noch nicht implementieren, aber im Hinterkopf behalten. FastAPI existiert hierfür bereits separat.)
+
+Struktur sauber und modular halten, um spätere Erweiterungen problemlos zu ermöglichen.
+
+✅ Zusammenfassung der Entscheidungen
+Kriterium	Entscheidung
+Benutzerdatenbank	SQLite lokal (netzwerkfähig)
+Benutzerverwaltung	Nur Admin legt Benutzer an
+Kommunikation Frontend-Backend	FastAPI lokal
+Speicherung/Verlauf	SQLite (SQLAlchemy ORM)
+Exportformate	PDF, CSV, RTF, GedCOM (DOCX/MD später möglich)
+SMTP-Mail	Admin konfigurierbar (extern)
+Betrieb Backend	Dauerhaft lokal
+API-Dokumentation	Ja (Swagger/OpenAPI)
+Unit-Tests	Ja (pytest)
