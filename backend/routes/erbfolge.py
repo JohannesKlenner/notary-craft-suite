@@ -15,8 +15,19 @@ async def calculate_erbfolge(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Implement inheritance calculation logic here
-    ergebnis = f"Erblasser {erblasser} mit Vermögenswert {vermoegenswert}€"
+    # Basic inheritance calculation logic
+    def berechne_erbanteil(beziehung: str) -> float:
+        anteile = {
+            "ehepartner": 50,  # Ehepartner erbt 50%
+            "kind": 25,        # Kinder erben zu gleichen Teilen
+            "elternteil": 25,  # Eltern erben zu gleichen Teilen
+            "geschwister": 25, # Geschwister erben zu gleichen Teilen
+            "neffe": 12.5,     # Neffen/Nichten erben zu gleichen Teilen
+            "großelternteil": 25  # Großeltern erben zu gleichen Teilen
+        }
+        return anteile.get(beziehung, 0)
+
+    ergebnis = f"Erblasser {erblasser} hinterlässt {vermoegenswert}€ - Erbanteil: {berechne_erbanteil('ehepartner')}%"
     
     calculation = Erbfolge(
         user_id=current_user.id,

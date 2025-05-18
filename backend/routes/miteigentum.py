@@ -15,8 +15,19 @@ async def calculate_miteigentum(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    # Implement co-ownership calculation logic here
-    ergebnis = f"Objekt {objekt} mit Anteil {anteil}%"
+    def format_bruch(anteil: float) -> str:
+        nenner = 100
+        zaehler = int(anteil * nenner)
+        
+        def gcd(a: int, b: int) -> int:
+            while b:
+                a, b = b, a % b
+            return a
+            
+        teiler = gcd(zaehler, nenner)
+        return f"{zaehler//teiler}/{nenner//teiler}"
+
+    ergebnis = f"Objekt {objekt} - Anteil: {anteil}% ({format_bruch(anteil/100)})"
     
     calculation = Miteigentum(
         user_id=current_user.id,
