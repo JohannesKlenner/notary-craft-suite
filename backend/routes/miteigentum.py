@@ -1,10 +1,10 @@
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from ..database.db import get_db
-from ..models.miteigentum import Miteigentum
-from ..auth.users import get_current_user, User
+from backend.database.db import get_db
+from backend.models.miteigentum import Miteigentum
+from backend.auth.users import get_current_user, User
+from backend.tools.miteigentum import berechne_miteigentum
 
 router = APIRouter()
 
@@ -15,27 +15,14 @@ async def calculate_miteigentum(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    def format_bruch(anteil: float) -> str:
-        nenner = 100
-        zaehler = int(anteil * nenner)
-        
-        def gcd(a: int, b: int) -> int:
-            while b:
-                a, b = b, a % b
-            return a
-            
-        teiler = gcd(zaehler, nenner)
-        return f"{zaehler//teiler}/{nenner//teiler}"
-
-    ergebnis = f"Objekt {objekt} - Anteil: {anteil}% ({format_bruch(anteil/100)})"
-    
+    # Dummy-Logik aus tools.miteigentum nutzen
+    ergebnis = berechne_miteigentum(objekt, anteil)
     calculation = Miteigentum(
         user_id=current_user.id,
         objekt=objekt,
         anteil=anteil,
-        ergebnis=ergebnis
+        ergebnis=ergebnis["ergebnis"]
     )
-    
     db.add(calculation)
     db.commit()
     db.refresh(calculation)

@@ -2,6 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database.db import engine, Base
 from routes import erbfolge, miteigentum
+from export import exporter
+from feedback import email
+from auth import users
 
 app = FastAPI(title="Notary Tools API")
 
@@ -16,9 +19,18 @@ app.add_middleware(
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Include routers
-app.include_router(erbfolge.router, prefix="/api/erbfolge", tags=["erbfolge"])
-app.include_router(miteigentum.router, prefix="/api/miteigentum", tags=["miteigentum"])
+# Auth
+app.include_router(users.router)
+
+# Tool-Routen
+app.include_router(erbfolge.router, prefix="/tools/erbfolge", tags=["tools"])
+app.include_router(miteigentum.router, prefix="/tools/miteigentum", tags=["tools"])
+
+# Export
+app.include_router(exporter.router, prefix="/export", tags=["export"])
+
+# Feedback
+app.include_router(email.router, prefix="/feedback", tags=["feedback"])
 
 if __name__ == "__main__":
     import uvicorn

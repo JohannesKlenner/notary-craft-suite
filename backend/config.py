@@ -1,4 +1,3 @@
-
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -14,3 +13,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     
 settings = Settings()
+
+SMTP_SETTINGS = {
+    "smtp_server": "smtp.example.com",
+    "smtp_port": 587,
+    "smtp_user": "user@example.com",
+    "smtp_password": "securepassword"
+}
+
+FEEDBACK_EMAIL = "feedback@notarytools.local"
+JWT_SECRET = "dein_geheimer_schluessel"
