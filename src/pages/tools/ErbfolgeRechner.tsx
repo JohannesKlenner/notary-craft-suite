@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +14,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FamilyTree } from '@/components/tools/erbfolge/FamilyTree';
 import { PersonDialog } from '@/components/tools/erbfolge/PersonDialog';
 import { GedcomImporter } from '@/components/tools/erbfolge/GedcomImporter';
+import { ErbfolgeInterview } from '@/components/tools/erbfolge/ErbfolgeInterview';
 
-type Beziehung = 'ehepartner' | 'kind' | 'elternteil' | 'geschwister' | 'neffe' | 'großelternteil';
+type Beziehung = 'ehepartner' | 'kind' | 'elternteil' | 'geschwister' | 'neffe' | 'großelternteil' | 'enkel';
 
 interface Person {
   id: string;
@@ -26,6 +26,8 @@ interface Person {
   geburtsdatum: string;
   sterbedatum?: string;
   parentId?: string;  // Für Baumdarstellung
+  generation?: number;
+  stammId?: string;
 }
 
 interface TreeData {
@@ -45,6 +47,7 @@ const ErbfolgeRechner = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPerson, setCurrentPerson] = useState<Person | null>(null);
   const [activeTab, setActiveTab] = useState("eingabe");
+  const [eingabeMethod, setEingabeMethod] = useState<"manuell" | "interview">("manuell");
   const [treeData, setTreeData] = useState<TreeData | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [demoModeActive, setDemoModeActive] = useState(false);
@@ -98,6 +101,19 @@ const ErbfolgeRechner = () => {
     toast({
       title: 'Backend nicht verbunden',
       description: 'Demo-Modus ist aktiv. Alle Funktionen sind verfügbar.',
+    });
+  };
+
+  // Interview callback
+  const handleInterviewComplete = (erblasserName: string, personen: Person[]) => {
+    setErblasserName(erblasserName);
+    setPersonen(personen);
+    setEingabeMethod("manuell"); // Zurück zum normalen Modus nach dem Interview
+    berechnen(); // Automatische Berechnung nach dem Interview
+    
+    toast({
+      title: 'Interview abgeschlossen',
+      description: 'Die Daten wurden erfasst und die Erbfolge wird berechnet.'
     });
   };
 
@@ -202,38 +218,139 @@ const ErbfolgeRechner = () => {
     const heute = new Date();
     const ehepartner = personen.filter(p => p.beziehung === 'ehepartner' && isAlive(p, heute));
     const kinder = personen.filter(p => p.beziehung === 'kind' && isAlive(p, heute));
+    const enkel = personen.filter(p => p.beziehung === 'enkel' && isAlive(p, heute));
     
-    if (ehepartner.length > 0 && kinder.length > 0) {
-      // Ehepartner und Kinder
+    // Sammle verstorbene Kinder
+    const verstorbeneKinder = personen.filter(p => p.beziehung === 'kind' && !isAlive(p, heute));
+    
+    // Gruppiere Enkel nach ihren Eltern (verstorbene Kinder)
+    const enkelNachStamm: Record<string, Person[]> = {};
+    
+    enkel.forEach(e => {
+      if (e.stammId) {
+        if (!enkelNachStamm[e.stammId]) {
+          enkelNachStamm[e.stammId] = [];
+        }
+        enkelNachStamm[e.stammId].push(e);
+      }
+    });
+    
+    if (ehepartner.length > 0 && (kinder.length > 0 || Object.keys(enkelNachStamm).length > 0)) {
+      // Ehepartner und Kinder/Enkel (1. Ordnung)
       const ehepartnerQuote = 50; // 50%
-      const kinderQuote = 50 / kinder.length; // Rest gleichmäßig auf Kinder verteilen
+      const kindAnteil = 50; // Rest für Kinder/Enkel
       
+      // Ehepartner Anteil
       ehepartner.forEach(p => {
         result[p.id] = ehepartnerQuote / ehepartner.length;
       });
       
+      // Anzahl der Stämme (lebende Kinder + Stämme mit lebenden Enkelkindern)
+      const stammAnzahl = kinder.length + Object.keys(enkelNachStamm).length;
+      const stammQuote = stammAnzahl > 0 ? kindAnteil / stammAnzahl : 0;
+      
+      // Kinder Anteile
       kinder.forEach(p => {
-        result[p.id] = kinderQuote;
+        result[p.id] = stammQuote;
       });
-    } else if (ehepartner.length > 0 && kinder.length === 0) {
-      // Nur Ehepartner
-      ehepartner.forEach(p => {
-        result[p.id] = 100 / ehepartner.length;
+      
+      // Enkel nach Stämmen
+      Object.entries(enkelNachStamm).forEach(([stammId, stamm]) => {
+        const enkelQuoteProStamm = stammQuote / stamm.length;
+        stamm.forEach(e => {
+          result[e.id] = enkelQuoteProStamm;
+        });
       });
-    } else if (kinder.length > 0 && ehepartner.length === 0) {
-      // Nur Kinder
-      const kinderQuote = 100 / kinder.length;
+    } else if (ehepartner.length > 0 && kinder.length === 0 && Object.keys(enkelNachStamm).length === 0) {
+      // Nur Ehepartner, keine Nachkommen 1. Ordnung
+      // Prüfen auf Erben 2. Ordnung (Eltern, Geschwister)
+      const eltern = personen.filter(p => p.beziehung === 'elternteil' && isAlive(p, heute));
+      const geschwister = personen.filter(p => p.beziehung === 'geschwister' && isAlive(p, heute));
+      
+      if (eltern.length > 0 || geschwister.length > 0) {
+        // Ehepartner + 2. Ordnung
+        const ehepartnerQuote = 75; // 75% für Ehepartner
+        const zweiteOrdnungQuote = 25; // 25% für 2. Ordnung
+        
+        ehepartner.forEach(p => {
+          result[p.id] = ehepartnerQuote / ehepartner.length;
+        });
+        
+        const zweiteOrdnungAnzahl = eltern.length + geschwister.length;
+        if (zweiteOrdnungAnzahl > 0) {
+          const anteilProPerson = zweiteOrdnungQuote / zweiteOrdnungAnzahl;
+          [...eltern, ...geschwister].forEach(p => {
+            result[p.id] = anteilProPerson;
+          });
+        }
+      } else {
+        // Nur Ehepartner, keine 2. Ordnung
+        ehepartner.forEach(p => {
+          result[p.id] = 100 / ehepartner.length;
+        });
+      }
+    } else if (kinder.length > 0 || Object.keys(enkelNachStamm).length > 0) {
+      // Keine Ehepartner, aber Nachkommen 1. Ordnung
+      
+      // Anzahl der Stämme
+      const stammAnzahl = kinder.length + Object.keys(enkelNachStamm).length;
+      const stammQuote = stammAnzahl > 0 ? 100 / stammAnzahl : 0;
+      
+      // Kinder Anteile
       kinder.forEach(p => {
-        result[p.id] = kinderQuote;
+        result[p.id] = stammQuote;
+      });
+      
+      // Enkel nach Stämmen
+      Object.entries(enkelNachStamm).forEach(([stammId, stamm]) => {
+        const enkelQuoteProStamm = stammQuote / stamm.length;
+        stamm.forEach(e => {
+          result[e.id] = enkelQuoteProStamm;
+        });
       });
     } else {
-      // Sonstige Verwandte (stark vereinfacht)
-      const lebendeVerwandte = personen.filter(p => isAlive(p, heute));
-      if (lebendeVerwandte.length > 0) {
-        const quote = 100 / lebendeVerwandte.length;
-        lebendeVerwandte.forEach(p => {
-          result[p.id] = quote;
-        });
+      // Keine Ehepartner und keine Nachkommen 1. Ordnung
+      // Prüfe 2. Ordnung (Eltern, Geschwister)
+      const eltern = personen.filter(p => p.beziehung === 'elternteil' && isAlive(p, heute));
+      const geschwister = personen.filter(p => p.beziehung === 'geschwister' && isAlive(p, heute));
+      
+      if (eltern.length > 0 || geschwister.length > 0) {
+        // Erben 2. Ordnung
+        // Bei Eltern: Kopfteile
+        // Bei Geschwistern: nach Stämmen
+        
+        // Wenn Eltern leben, erben nur sie
+        if (eltern.length > 0) {
+          const anteilProElternteil = 100 / eltern.length;
+          eltern.forEach(p => {
+            result[p.id] = anteilProElternteil;
+          });
+        } else {
+          // Nur Geschwister
+          const anteilProGeschwister = 100 / geschwister.length;
+          geschwister.forEach(p => {
+            result[p.id] = anteilProGeschwister;
+          });
+        }
+      } else {
+        // Keine 1. und 2. Ordnung, prüfe 3. Ordnung (Großeltern)
+        const großeltern = personen.filter(p => p.beziehung === 'großelternteil' && isAlive(p, heute));
+        
+        if (großeltern.length > 0) {
+          const anteilProGroßelternteil = 100 / großeltern.length;
+          großeltern.forEach(p => {
+            result[p.id] = anteilProGroßelternteil;
+          });
+        } else {
+          // Entferntere Verwandte (stark vereinfacht)
+          const lebendeVerwandte = personen.filter(p => isAlive(p, heute));
+          if (lebendeVerwandte.length > 0) {
+            const quote = 100 / lebendeVerwandte.length;
+            lebendeVerwandte.forEach(p => {
+              result[p.id] = quote;
+            });
+          }
+        }
       }
     }
     
@@ -260,6 +377,7 @@ const ErbfolgeRechner = () => {
     // Ehepartner direkt unter dem Erblasser
     const ehepartner = personen.filter(p => p.beziehung === 'ehepartner');
     const kinder = personen.filter(p => p.beziehung === 'kind');
+    const enkel = personen.filter(p => p.beziehung === 'enkel');
     
     // Füge Ehepartner hinzu
     ehepartner.forEach(p => {
@@ -275,22 +393,55 @@ const ErbfolgeRechner = () => {
       });
     });
     
-    // Füge Kinder hinzu
-    kinder.forEach(p => {
-      root.children = root.children || [];
-      root.children.push({
-        name: `${p.vorname} ${p.nachname}`,
+    // Gruppiere Kinder und ihre Nachkommen
+    const kinderMitNachkommen: {[id: string]: TreeData} = {};
+    
+    kinder.forEach(k => {
+      kinderMitNachkommen[k.id] = {
+        name: `${k.vorname} ${k.nachname}`,
         attributes: {
-          beziehung: p.beziehung,
-          geburt: p.geburtsdatum,
-          tod: p.sterbedatum,
-          erbanteil: ergebnisse[p.id] ? `${ergebnisse[p.id].toFixed(2)}%` : '0%'
-        }
-      });
+          beziehung: k.beziehung,
+          geburt: k.geburtsdatum,
+          tod: k.sterbedatum,
+          erbanteil: ergebnisse[k.id] ? `${ergebnisse[k.id].toFixed(2)}%` : '0%'
+        },
+        children: []
+      };
     });
     
-    // Andere Verwandte
-    const andere = personen.filter(p => p.beziehung !== 'ehepartner' && p.beziehung !== 'kind');
+    // Füge Enkelkinder zu ihren Eltern hinzu
+    enkel.forEach(e => {
+      // Suche nach Stammzugehörigkeit
+      if (e.stammId) {
+        const elternteil = kinder.find(k => k.stammId === e.stammId);
+        if (elternteil && kinderMitNachkommen[elternteil.id]) {
+          kinderMitNachkommen[elternteil.id].children = kinderMitNachkommen[elternteil.id].children || [];
+          kinderMitNachkommen[elternteil.id].children.push({
+            name: `${e.vorname} ${e.nachname}`,
+            attributes: {
+              beziehung: e.beziehung,
+              geburt: e.geburtsdatum,
+              tod: e.sterbedatum,
+              erbanteil: ergebnisse[e.id] ? `${ergebnisse[e.id].toFixed(2)}%` : '0%'
+            }
+          });
+        }
+      }
+    });
+    
+    // Füge alle Kinder mit ihren Nachkommen zum Root hinzu
+    Object.values(kinderMitNachkommen).forEach(kind => {
+      root.children = root.children || [];
+      root.children.push(kind);
+    });
+    
+    // Andere Verwandte (Eltern, Großeltern, etc.)
+    const andere = personen.filter(p => 
+      p.beziehung !== 'ehepartner' && 
+      p.beziehung !== 'kind' && 
+      p.beziehung !== 'enkel'
+    );
+    
     andere.forEach(p => {
       root.children = root.children || [];
       root.children.push({
@@ -445,6 +596,125 @@ const ErbfolgeRechner = () => {
     });
   };
 
+  // Render Interview or manual input based on the selected method
+  const renderEingabeContent = () => {
+    if (eingabeMethod === "interview") {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center mb-4">
+            <Button variant="outline" onClick={() => setEingabeMethod("manuell")}>
+              Zurück zum manuellen Modus
+            </Button>
+          </div>
+          
+          <ErbfolgeInterview 
+            onComplete={handleInterviewComplete}
+            initialData={{
+              erblasserName,
+              personen
+            }}
+          />
+        </div>
+      );
+    }
+    
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-4">
+          <Button variant="outline" onClick={() => setEingabeMethod("interview")}>
+            Geführtes Interview starten
+          </Button>
+        </div>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle>Erblasser</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="erblasserName">Name des Erblassers</Label>
+                <Input 
+                  id="erblasserName"
+                  value={erblasserName}
+                  onChange={(e) => setErblasserName(e.target.value)}
+                  placeholder="Name eingeben"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Verwandte und Erben</CardTitle>
+            <div className="flex gap-2">
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="outline" onClick={() => {}}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    GEDCOM Import
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogTitle>GEDCOM-Datei importieren</DialogTitle>
+                  <DialogDescription>
+                    Wählen Sie eine GEDCOM-Datei zum Import aus.
+                  </DialogDescription>
+                  <GedcomImporter onImport={handleGedcomImport} />
+                </DialogContent>
+              </Dialog>
+              
+              <Button variant="outline" onClick={addPerson}>
+                <Plus className="mr-2 h-4 w-4" />
+                Person hinzufügen
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {personen.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Users size={48} className="mx-auto mb-4 opacity-20" />
+                  <p>Keine Personen vorhanden. Fügen Sie Verwandte oder Erben hinzu.</p>
+                </div>
+              ) : (
+                personen.map((person, index) => (
+                  <div 
+                    key={person.id} 
+                    className="flex flex-col gap-4 p-4 border rounded-lg hover:bg-accent/30 cursor-pointer transition-colors"
+                    onClick={() => editPerson(person)}
+                  >
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-medium">{person.vorname} {person.nachname}</h3>
+                      <div className="text-sm px-2 py-1 rounded-full bg-primary/10 text-primary">
+                        {person.beziehung}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row text-sm gap-2 text-muted-foreground">
+                      <div>Geburtsdatum: {person.geburtsdatum || "Unbekannt"}</div>
+                      {person.sterbedatum && (
+                        <div>Todesdatum: {person.sterbedatum}</div>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" onClick={speichern}>
+              <Save className="mr-2 h-4 w-4" />
+              Speichern
+            </Button>
+            <Button onClick={berechnen}>Berechnen</Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  };
+
   return (
     <AuthGuard>
       <div className="container max-w-7xl mx-auto py-6 px-4 animate-fade-in">
@@ -477,91 +747,7 @@ const ErbfolgeRechner = () => {
 
           {/* Eingabe Tab */}
           <TabsContent value="eingabe" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Erblasser</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="erblasserName">Name des Erblassers</Label>
-                    <Input 
-                      id="erblasserName"
-                      value={erblasserName}
-                      onChange={(e) => setErblasserName(e.target.value)}
-                      placeholder="Name eingeben"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Verwandte und Erben</CardTitle>
-                <div className="flex gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" onClick={() => {}}>
-                        <Upload className="mr-2 h-4 w-4" />
-                        GEDCOM Import
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogTitle>GEDCOM-Datei importieren</DialogTitle>
-                      <DialogDescription>
-                        Wählen Sie eine GEDCOM-Datei zum Import aus.
-                      </DialogDescription>
-                      <GedcomImporter onImport={handleGedcomImport} />
-                    </DialogContent>
-                  </Dialog>
-                  
-                  <Button variant="outline" onClick={addPerson}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Person hinzufügen
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {personen.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Users size={48} className="mx-auto mb-4 opacity-20" />
-                      <p>Keine Personen vorhanden. Fügen Sie Verwandte oder Erben hinzu.</p>
-                    </div>
-                  ) : (
-                    personen.map((person, index) => (
-                      <div 
-                        key={person.id} 
-                        className="flex flex-col gap-4 p-4 border rounded-lg hover:bg-accent/30 cursor-pointer transition-colors"
-                        onClick={() => editPerson(person)}
-                      >
-                        <div className="flex justify-between items-center">
-                          <h3 className="font-medium">{person.vorname} {person.nachname}</h3>
-                          <div className="text-sm px-2 py-1 rounded-full bg-primary/10 text-primary">
-                            {person.beziehung}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row text-sm gap-2 text-muted-foreground">
-                          <div>Geburtsdatum: {person.geburtsdatum || "Unbekannt"}</div>
-                          {person.sterbedatum && (
-                            <div>Todesdatum: {person.sterbedatum}</div>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline" onClick={speichern}>
-                  <Save className="mr-2 h-4 w-4" />
-                  Speichern
-                </Button>
-                <Button onClick={berechnen}>Berechnen</Button>
-              </CardFooter>
-            </Card>
+            {renderEingabeContent()}
           </TabsContent>
 
           {/* Ergebnisse Tab */}
