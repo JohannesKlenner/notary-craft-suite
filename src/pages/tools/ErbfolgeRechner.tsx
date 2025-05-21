@@ -74,7 +74,15 @@ const ErbfolgeRechner = () => {
   // Check if backend is available
   const checkBackendAvailability = async () => {
     try {
-      const res = await fetch('http://localhost:8000/tools/erbfolge/health-check', { timeout: 2000 });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      
+      const res = await fetch('http://localhost:8000/tools/erbfolge/health-check', { 
+        signal: controller.signal 
+      });
+      
+      clearTimeout(timeoutId);
+      
       if (!res.ok) {
         activateDemoMode();
       }
