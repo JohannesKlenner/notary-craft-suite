@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FamilyTree } from '@/components/tools/erbfolge/FamilyTree';
 import { PersonDialog } from '@/components/tools/erbfolge/PersonDialog';
 import { GedcomImporter } from '@/components/tools/erbfolge/GedcomImporter';
-import { ErbfolgeInterview } from '@/components/tools/erbfolge/ErbfolgeInterview';
+import { ErbfolgeInterview, Person, Beziehung } from '@/components/tools/erbfolge/ErbfolgeInterview';
 
 type Beziehung = 'ehepartner' | 'kind' | 'elternteil' | 'geschwister' | 'neffe' | 'großelternteil' | 'enkel';
 

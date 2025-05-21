@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,9 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowRight, ArrowLeft, Save } from 'lucide-react';
 
-type Beziehung = 'ehepartner' | 'kind' | 'elternteil' | 'geschwister' | 'neffe' | 'großelternteil' | 'urgroßelternteil' | 'enkel';
+export type Beziehung = 'ehepartner' | 'kind' | 'elternteil' | 'geschwister' | 'neffe' | 'großelternteil' | 'urgroßelternteil' | 'enkel';
 
-interface Person {
+export interface Person {
   id: string;
   beziehung: Beziehung;
   vorname: string;
@@ -29,7 +28,9 @@ type InterviewStep =
   | 'kinder'
   | 'kindDetails'
   | 'kindKinder'
+  | 'enkelDetails'
   | 'eltern'
+  | 'elternDetails'
   | 'elternGeschwister'
   | 'großeltern'
   | 'großelternKinder'
@@ -565,6 +566,81 @@ export const ErbfolgeInterview: React.FC<ErbfolgeInterviewProps> = ({
           </>
         );
         
+      case 'enkelDetails':
+        return (
+          <>
+            <CardHeader>
+              <CardTitle>Enkel des Erblassers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="vorname">Vorname</Label>
+                    <Input
+                      id="vorname"
+                      value={formVorname}
+                      onChange={(e) => setFormVorname(e.target.value)}
+                      placeholder="Vorname"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nachname">Nachname</Label>
+                    <Input
+                      id="nachname"
+                      value={formNachname}
+                      onChange={(e) => setFormNachname(e.target.value)}
+                      placeholder="Nachname"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="geburtsdatum">Geburtsdatum</Label>
+                    <Input
+                      id="geburtsdatum"
+                      type="date"
+                      value={formGeburtsdatum}
+                      onChange={(e) => setFormGeburtsdatum(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sterbedatum">Sterbedatum (falls verstorben)</Label>
+                    <Input
+                      id="sterbedatum"
+                      type="date"
+                      value={formSterbedatum}
+                      onChange={(e) => setFormSterbedatum(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={zurueck}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Zurück
+              </Button>
+              <Button 
+                onClick={() => {
+                  speicherePerson(
+                    'enkel', 
+                    kontext.aktuellesKind?.id, 
+                    kontext.aktuelleGeneration,
+                    kontext.aktuellerStamm || undefined
+                  );
+                  
+                  // Nach weiteren Enkelkindern fragen
+                  weiter('kindKinder');
+                }}
+                disabled={!formVorname.trim() || !formNachname.trim() || !formGeburtsdatum}
+              >
+                Weiter <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </>
+        );
+        
       case 'eltern':
         return (
           <>
@@ -605,6 +681,76 @@ export const ErbfolgeInterview: React.FC<ErbfolgeInterviewProps> = ({
                     weiter('großeltern');
                   }
                 }}
+              >
+                Weiter <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </>
+        );
+        
+      case 'elternDetails':
+        return (
+          <>
+            <CardHeader>
+              <CardTitle>Daten des Elternteils</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="vorname">Vorname</Label>
+                    <Input
+                      id="vorname"
+                      value={formVorname}
+                      onChange={(e) => setFormVorname(e.target.value)}
+                      placeholder="Vorname"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="nachname">Nachname</Label>
+                    <Input
+                      id="nachname"
+                      value={formNachname}
+                      onChange={(e) => setFormNachname(e.target.value)}
+                      placeholder="Nachname"
+                    />
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="geburtsdatum">Geburtsdatum</Label>
+                    <Input
+                      id="geburtsdatum"
+                      type="date"
+                      value={formGeburtsdatum}
+                      onChange={(e) => setFormGeburtsdatum(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="sterbedatum">Sterbedatum (falls verstorben)</Label>
+                    <Input
+                      id="sterbedatum"
+                      type="date"
+                      value={formSterbedatum}
+                      onChange={(e) => setFormSterbedatum(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={zurueck}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Zurück
+              </Button>
+              <Button 
+                onClick={() => {
+                  speicherePerson('elternteil');
+                  
+                  // Weitere Elternteile abfragen
+                  weiter('eltern');
+                }}
+                disabled={!formVorname.trim() || !formNachname.trim() || !formGeburtsdatum}
               >
                 Weiter <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
